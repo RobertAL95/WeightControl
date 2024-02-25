@@ -1,10 +1,15 @@
-import React from 'react'
-import RegisterForm from './RegisterForm';
+import React from 'react';
+import { RegistrationFormProvider } from './context/RegistrationFormProvider';
+import RegistrationFormLogic from './components/RegistrationFormLogic';
+import RegistrationFormUI from './components/RegistrationFormUI';
 
-export default function index() {
+const SingIn: React.FC = () => {
   return (
-    <div>
-      <RegisterForm/>
-    </div>
-  )
-}
+    <RegistrationFormProvider>
+      <RegistrationFormLogic />
+      <RegistrationFormUI />
+    </RegistrationFormProvider>
+  );
+};
+
+export default SingIn;

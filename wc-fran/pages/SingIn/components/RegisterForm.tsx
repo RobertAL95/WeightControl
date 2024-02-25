@@ -7,7 +7,6 @@ import {
   Typography,
   Box,
   Grid,
-  IconButton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -19,6 +18,8 @@ function RegistrationForm() {
   const [reasons, setReasons] = useState<string>('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [photoTaken, setPhotoTaken] = useState<boolean>(false);
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream>();
@@ -32,7 +33,11 @@ function RegistrationForm() {
       setErrorMessage('Toma una foto para continuar!');
     } else {
       setErrorMessage('');
-      setStep(step + 1);
+      if (step === 4) {
+        sendData(); // Enviar datos cuando se completa el formulario
+      } else {
+        setStep(step + 1);
+      }
     }
   };
 
@@ -54,7 +59,7 @@ function RegistrationForm() {
   };
 
   const handleTakePhoto = () => {
-    if (videoRef.current) {
+    if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
@@ -63,17 +68,23 @@ function RegistrationForm() {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const imageDataURL = canvas.toDataURL('image/png');
         setPhoto(imageDataURL);
+        setPhotoTaken(true);
       }
     }
   };
 
   const startCamera = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+      const permission = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (permission) {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play();
+        }
+        mediaStreamRef.current = mediaStream;
+        setIsCameraActive(true);
       }
-      mediaStreamRef.current = mediaStream;
     } catch (error) {
       console.error('Error al acceder a la cámara:', error);
     }
@@ -82,6 +93,32 @@ function RegistrationForm() {
   const stopCamera = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const sendData = async () => {
+    try {
+      const response = await fetch('https://tu-url-api.com/endpoint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formData,
+          reasons,
+          photo,
+        }),
+      });
+      if (response.ok) {
+        console.log('Datos enviados con éxito.');
+      } else {
+        console.error('Error al enviar los datos:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error de red:', error.message);
     }
   };
 
@@ -142,11 +179,30 @@ function RegistrationForm() {
               </div>
             )}
             {step === 3 && (
-              <div>
-                <video ref={videoRef} style={{ width: '100%', height: 'auto' }} autoPlay></video>
-                <IconButton color="primary" onClick={startCamera}>
-                  <CameraAltIcon />
-                </IconButton>
+              <div style={{ textAlign: 'center' }}>
+                {!isCameraActive && (
+                  <Button variant="contained" color="primary" onClick={startCamera}>
+                    Activar Cámara
+                  </Button>
+                )}
+                {isCameraActive && (
+                  <div>
+                    <video ref={videoRef} style={{ width: '100%', height: 'auto', marginTop: '10px', maxWidth: '100%' }} autoPlay playsInline></video>
+                    {!photoTaken && (
+                      <Button variant="contained" color="primary" onClick={handleTakePhoto} style={{ marginTop: '10px' }}>
+                        Tomar Foto
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {photoTaken && (
+                  <div style={{ marginTop: '10px' }}>
+                    <img src={photo || ''} alt="Foto" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '50%' }} />
+                    <Button variant="contained" color="primary" onClick={handleSubmit} style={{ marginTop: '10px' }}>
+                      Enviar Foto
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </Grid>
@@ -164,20 +220,10 @@ function RegistrationForm() {
                 endIcon={<ArrowForwardIcon />}
                 style={{ marginLeft: '10px' }}
               >
-                Siguiente
+                {step === 4 ? 'Enviar' : 'Siguiente'}
               </Button>
             </Box>
           </Grid>
-          {step === 4 && (
-            <Grid item xs={12}>
-              <Typography variant="h6" align="center" gutterBottom>
-                ¡Formulario completado!
-              </Typography>
-              <Button variant="contained" color="primary" onClick={handleSubmit} fullWidth>
-                Enviar
-              </Button>
-            </Grid>
-          )}
         </Grid>
       </Paper>
     </Container>
